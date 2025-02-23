@@ -35,13 +35,20 @@ void scheduler_init(Scheduler* scheduler, GameState* game_state) {
     scheduler->accumulator = 0.0f;
 }
 
+
 void scheduler_run(Scheduler* scheduler) {
+    int frameCount = 0;
+    float fpsTimer = 0.0f;
+
     while (!input_should_quit()) {
         input_poll_events();
 
         float current_time = get_current_time();
         float delta_time = current_time - scheduler->last_time;
         scheduler->last_time = current_time;
+
+        fpsTimer += delta_time;
+        frameCount++;
 
         scheduler->accumulator += delta_time;
         while (scheduler->accumulator >= TARGET_FRAME_TIME) {
@@ -50,10 +57,19 @@ void scheduler_run(Scheduler* scheduler) {
         }
 
         render_begin_frame();
-        render_draw_rect((int)scheduler->game_state->rect_x, (int)scheduler->game_state->rect_y, 200, 200, 255, 0, 0);
+        render_draw_rect((int)scheduler->game_state->rect_x,
+                         (int)scheduler->game_state->rect_y,
+                         200, 200, 255, 0, 0);
         render_end_frame();
+
+        if (fpsTimer >= 1.0f) {
+            printf("FPS: %d\n", frameCount);
+            frameCount = 0;
+            fpsTimer -= 1.0f;
+        }
     }
 }
+
 
 int main(int argc, char* argv[]) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
