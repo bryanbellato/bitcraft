@@ -12,12 +12,46 @@ typedef struct {
     float rect_y;
 } GameState;
 
+// Function to update game state based on input
 void update_game_state(GameState* state, float dt) {
     if (input_is_key_pressed(SDLK_LEFT)) {
-        state->rect_x -= 100.0f * dt; 
+        state->rect_x -= 100.0f * dt;
     }
     if (input_is_key_pressed(SDLK_RIGHT)) {
-        state->rect_x += 100.0f * dt; 
+        state->rect_x += 100.0f * dt;
+    }
+}
+
+// Scheduler structure to manage the game loop
+typedef struct {
+    GameState* game_state;  // Pointer to the game state
+    float last_time;        // Last recorded time for delta calculation
+    float accumulator;      // Accumulated time for fixed time-step updates
+} Scheduler;
+
+void scheduler_init(Scheduler* scheduler, GameState* game_state) {
+    scheduler->game_state = game_state;
+    scheduler->last_time = get_current_time();
+    scheduler->accumulator = 0.0f;
+}
+
+void scheduler_run(Scheduler* scheduler) {
+    while (!input_should_quit()) {
+        input_poll_events();
+
+        float current_time = get_current_time();
+        float delta_time = current_time - scheduler->last_time;
+        scheduler->last_time = current_time;
+
+        scheduler->accumulator += delta_time;
+        while (scheduler->accumulator >= TARGET_FRAME_TIME) {
+            update_game_state(scheduler->game_state, TARGET_FRAME_TIME);
+            scheduler->accumulator -= TARGET_FRAME_TIME;
+        }
+
+        render_begin_frame();
+        render_draw_rect((int)scheduler->game_state->rect_x, (int)scheduler->game_state->rect_y, 200, 200, 255, 0, 0);
+        render_end_frame();
     }
 }
 
@@ -45,30 +79,11 @@ int main(int argc, char* argv[]) {
     render_init(renderer);
     input_init();
 
-    // Initialize game state
     GameState game_state = {100.0f, 100.0f};
 
-    // Timing variables
-    float last_time = get_current_time();
-    float accumulator = 0.0f;
-
-    while (!input_should_quit()) {
-        input_poll_events();
-
-        float current_time = get_current_time();
-        float delta_time = current_time - last_time;
-        last_time = current_time;
-
-        accumulator += delta_time;
-        while (accumulator >= TARGET_FRAME_TIME) {
-            update_game_state(&game_state, TARGET_FRAME_TIME);
-            accumulator -= TARGET_FRAME_TIME;
-        }
-
-        render_begin_frame();
-        render_draw_rect((int)game_state.rect_x, (int)game_state.rect_y, 200, 200, 255, 0, 0);
-        render_end_frame();
-    }
+    Scheduler scheduler;
+    scheduler_init(&scheduler, &game_state);
+    scheduler_run(&scheduler);
 
     render_shutdown();
     SDL_DestroyRenderer(renderer);
